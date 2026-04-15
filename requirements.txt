@@ -1,0 +1,31 @@
+# Core LLM / AI
+groq>=0.8.0
+litellm>=1.40.0
+
+# Vector store & embeddings
+chromadb>=0.5.0
+sentence-transformers>=2.7.0
+
+# Deep neural network (optional — needed only if using deep_neural_network.pth)
+torch>=2.1.0
+scikit-learn>=1.4.0
+
+# Web UI
+gradio>=4.36.0
+plotly>=5.22.0
+
+# RSS / web scraping
+feedparser>=6.0.10
+beautifulsoup4>=4.12.3
+requests>=2.31.0
+
+# Data & utilities
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+numpy>=1.26.0
+pandas>=2.2.0
+tqdm>=4.66.0
+
+# HuggingFace (for loading datasets / setting up vectorstore)
+datasets>=2.19.0
+huggingface-hub>=0.23.0
