@@ -1,7 +1,7 @@
 import os
 from agents.deals import Opportunity
 from agents.agent import Agent
-from litellm import completion
+from groq import Groq
 import requests
 
 PUSHOVER_URL = "https://api.pushover.net/1/messages.json"
@@ -15,10 +15,11 @@ class MessagingAgent(Agent):
 
     name = "Messaging Agent"
     color = Agent.WHITE
-    MODEL = "groq/llama-3.3-70b-versatile"
+    MODEL = "llama-3.1-8b-instant"
 
     def __init__(self):
         self.log("Messaging Agent is initializing")
+        self.client = Groq()
         self.pushover_user = os.getenv("PUSHOVER_USER", "")
         self.pushover_token = os.getenv("PUSHOVER_TOKEN", "")
         self.log("Messaging Agent has initialized Pushover and Groq")
@@ -58,9 +59,10 @@ class MessagingAgent(Agent):
             f"Estimated true value: ${estimated_true_value:.2f}\n\n"
             "Respond ONLY with the 2-3 sentence message. Make it exciting and concise."
         )
-        response = completion(
+        response = self.client.chat.completions.create(
             model=self.MODEL,
             messages=[{"role": "user", "content": user_prompt}],
+            max_tokens=200,
         )
         return response.choices[0].message.content
 
@@ -69,6 +71,16 @@ class MessagingAgent(Agent):
     ):
         """Craft a message with Groq and push it to the user."""
         self.log("Messaging Agent is using Groq to craft the notification message")
-        text = self.craft_message(description, deal_price, estimated_true_value)
-        self.push(text[:200] + "... " + url)
+        try:
+            text = self.craft_message(description, deal_price, estimated_true_value)
+            message = text[:200] + "... " + url
+        except Exception as e:
+            self.log(f"Messaging Agent could not craft message ({e}) — using fallback")
+            discount = estimated_true_value - deal_price
+            message = (
+                f"Deal Alert! {description[:80]}... "
+                f"Price: ${deal_price:.2f} | Est. value: ${estimated_true_value:.2f} | "
+                f"You save: ${discount:.2f} {url}"
+            )
+        self.push(message)
         self.log("Messaging Agent has completed notification")
