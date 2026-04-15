@@ -29,3 +29,6 @@ tqdm>=4.66.0
 # HuggingFace (for loading datasets / setting up vectorstore)
 datasets>=2.19.0
 huggingface-hub>=0.23.0
+
+# Modal (for deploying the fine-tuned specialist model)
+modal>=0.64.0

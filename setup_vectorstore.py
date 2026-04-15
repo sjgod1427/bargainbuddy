@@ -29,9 +29,9 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 # HuggingFace dataset — adjust to whichever dataset you're using.
 # The dataset must have columns: title, category, price (and optionally description/details).
-HF_DATASET_NAME = os.getenv("HF_DATASET_NAME", "ed-donner/pricer")
+HF_DATASET_NAME = os.getenv("HF_DATASET_NAME", "sjgod1247/items_lite")
 HF_SPLIT = os.getenv("HF_SPLIT", "train")
-MAX_ITEMS = int(os.getenv("MAX_ITEMS", "50000"))
+MAX_ITEMS = int(os.getenv("MAX_ITEMS", "20000"))
 BATCH_SIZE = 500
 
 CATEGORIES = [
@@ -51,7 +51,9 @@ def build_document(row: dict) -> str:
     parts = []
     if row.get("title"):
         parts.append(row["title"])
-    if row.get("description"):
+    if row.get("full"):
+        parts.append(row["full"])
+    elif row.get("description"):
         parts.append(row["description"])
     elif row.get("summary"):
         parts.append(row["summary"])
@@ -62,7 +64,7 @@ def build_document(row: dict) -> str:
 
 def main():
     print(f"Loading dataset: {HF_DATASET_NAME} (split={HF_SPLIT}, max={MAX_ITEMS})")
-    ds = load_dataset(HF_DATASET_NAME, split=HF_SPLIT, trust_remote_code=True)
+    ds = load_dataset(HF_DATASET_NAME, split=HF_SPLIT, token=os.getenv("HF_TOKEN"))
     ds = ds.select(range(min(MAX_ITEMS, len(ds))))
     print(f"Loaded {len(ds)} rows")
 

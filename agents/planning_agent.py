@@ -47,7 +47,12 @@ class PlanningAgent(Agent):
             best = opportunities[0]
             self.log(f"Planning Agent identified the best deal — discount ${best.discount:.2f}")
             if best.discount > self.DEAL_THRESHOLD:
-                self.messenger.alert(best)
+                self.messenger.notify(
+                    description=best.deal.product_description,
+                    deal_price=best.deal.price,
+                    estimated_true_value=best.estimate,
+                    url=best.deal.url,
+                )
             self.log("Planning Agent has completed a run")
             return best if best.discount > self.DEAL_THRESHOLD else None
         return None

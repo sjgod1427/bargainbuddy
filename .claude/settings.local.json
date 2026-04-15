@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "Bash(modal app *)",
+      "Bash(PYTHONUTF8=1 modal app logs bargainbuddy-pricer)"
     ]
   }
 }
