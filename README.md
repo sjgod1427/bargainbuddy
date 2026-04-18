@@ -13,9 +13,22 @@ license: mit
 
 # BargainBuddy
 
-An autonomous multi-agent deal-hunting system that scans online deal feeds, estimates the true market value of products using an ensemble of AI models, and sends you push notifications when it finds a genuine bargain.
+**Live demo → [huggingface.co/spaces/sjgod1247/bargainBuddy](https://huggingface.co/spaces/sjgod1247/bargainBuddy)**
+
+An autonomous multi-agent deal-hunting system that scans online deal feeds, estimates the true market value of products using an ensemble of AI models, and sends push notifications when it finds a genuine bargain.
 
 Powered entirely by **Groq** (fast open-source LLMs) — no OpenAI required.
+
+---
+
+## Features
+
+- **Autonomous deal scanner** — scrapes RSS deal feeds every 5 minutes, picks the best 5 deals using Groq JSON-mode
+- **Ensemble price estimator** — combines a RAG frontier model, specialist model, and PyTorch neural network to estimate true market value
+- **Live agent log** — colour-coded real-time output from every agent
+- **3D vectorstore plot** — interactive scatter plot of 20K+ product embeddings coloured by category
+- **URL deal checker** — paste any product URL and get an instant BUY / SKIP verdict with price comparison
+- **Per-user push notifications** — each visitor can enter their own Pushover credentials to get alerts on their phone
 
 ---
 
@@ -49,12 +62,25 @@ RSS Feeds
                                                                         │ weighted price estimate
                                                                         ▼
                                                         ┌───────────────────────────┐
-                                                        │     PlanningAgent         │
+                                                        │       PlanningAgent       │
                                                         │  if discount > $50 →      │
                                                         │     MessagingAgent        │
                                                         │     (llama-3.3-70b)       │
                                                         │     → Pushover push       │
                                                         └───────────────────────────┘
+
+User pastes URL
+    │
+    ▼
+┌─────────────────┐   scrape title, price, description
+│  URLScoutAgent  │──────────────────────────────────────────────────────────┐
+│  BeautifulSoup  │                                                          │
+│  + JSON-LD      │                                                          ▼
+└─────────────────┘                                               EnsembleAgent (price)
+                                                                             │
+                                                                             ▼
+                                                                  Groq llama-3.3-70b
+                                                                  BUY / SKIP verdict
 ```
 
 ### Agents
@@ -62,22 +88,21 @@ RSS Feeds
 | Agent | Model | Role |
 |-------|-------|------|
 | **ScannerAgent** | `llama-3.3-70b-versatile` | Reads deal RSS feeds; picks 5 best via JSON-mode structured output |
-| **FrontierAgent** | `llama-3.3-70b-versatile` | RAG over 50K+ product embeddings in ChromaDB; gives price estimate with context |
-| **SpecialistAgent** | `llama-3.1-8b-instant` | Fast specialist price estimate (replaces the original Modal fine-tuned model) |
+| **FrontierAgent** | `llama-3.3-70b-versatile` | RAG over 20K+ product embeddings in ChromaDB; gives price estimate with context |
+| **SpecialistAgent** | `llama-3.1-8b-instant` | Fast specialist price estimator |
 | **NeuralNetworkAgent** | PyTorch (deep residual net) | Local neural network prediction (requires `deep_neural_network.pth`) |
 | **EnsembleAgent** | — | Combines the three price estimates with weighted averaging |
 | **PlanningAgent** | — | Orchestrates the pipeline; triggers alerts on large discounts |
 | **MessagingAgent** | `llama-3.3-70b-versatile` | Crafts an exciting notification; delivers via Pushover API |
-| **AutonomousPlanningAgent** | `llama-3.3-70b-versatile` | Alternative to PlanningAgent — uses Groq tool-calling to reason autonomously |
+| **URLScoutAgent** | `llama-3.3-70b-versatile` | Scrapes any product URL and gives a buy/skip verdict |
 
 ---
 
-## Quick Start
+## Quick Start (Local)
 
 ### 1. Install dependencies
 
 ```bash
-cd bargainbuddy
 pip install -r requirements.txt
 ```
 
@@ -85,43 +110,28 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY (required)
-# Add PUSHOVER_USER and PUSHOVER_TOKEN if you want push notifications
+# Edit .env — GROQ_API_KEY is required
+# PUSHOVER_USER + PUSHOVER_TOKEN are optional (for push notifications)
 ```
 
-### 3. Set up the product vectorstore
+### 3. Run
 
-**Option A — Copy from week8 (fastest):**
-```bash
-cp -r ../llm_engineering/week8/products_vectorstore ./products_vectorstore
-```
-
-**Option B — Download and index from HuggingFace:**
-```bash
-python setup_vectorstore.py
-```
-
-### 4. (Optional) Copy neural network weights
-
-```bash
-cp ../llm_engineering/week8/deep_neural_network.pth ./deep_neural_network.pth
-# or from week6 where it was trained
-```
-
-If this file is missing, BargainBuddy runs fine — the EnsembleAgent
-rebalances to Frontier 89% + Specialist 11%.
-
-### 5. Run
-
-**CLI (single run):**
-```bash
-python framework.py
-```
-
-**Web UI (Gradio — auto-refreshes every 5 min):**
 ```bash
 python app.py
 ```
+
+The vectorstore is included in the repo — no setup step needed.
+
+---
+
+## Push Notifications
+
+Sign up free at [pushover.net](https://pushover.net), then either:
+
+- **Self-hosted / local**: add `PUSHOVER_USER` and `PUSHOVER_TOKEN` to your `.env`
+- **HuggingFace Spaces**: open the **🔔 Push Notifications** panel in the UI and enter your own keys — they stay in your browser session only
+
+Notifications fire automatically when a deal with a discount > $50 is found, or manually by clicking any row in the deals table.
 
 ---
 
@@ -130,24 +140,26 @@ python app.py
 ```
 bargainbuddy/
 ├── agents/
-│   ├── agent.py                  # Abstract base with colored logging
-│   ├── deals.py                  # Data models: ScrapedDeal, Deal, DealSelection, Opportunity
-│   ├── scanner_agent.py          # RSS scraper + Groq JSON-mode deal selector
-│   ├── frontier_agent.py         # Groq + ChromaDB RAG price estimator
-│   ├── specialist_agent.py       # Groq fast specialist price estimator
-│   ├── neural_network_agent.py   # PyTorch deep residual net price estimator
-│   ├── ensemble_agent.py         # Weighted combination of the three models
-│   ├── planning_agent.py         # Main pipeline orchestrator
+│   ├── agent.py                      # Abstract base with colored logging
+│   ├── deals.py                      # Data models: ScrapedDeal, Deal, DealSelection, Opportunity
+│   ├── scanner_agent.py              # RSS scraper + Groq JSON-mode deal selector
+│   ├── frontier_agent.py             # Groq + ChromaDB RAG price estimator
+│   ├── specialist_agent.py           # Groq fast specialist price estimator
+│   ├── neural_network_agent.py       # PyTorch deep residual net price estimator
+│   ├── ensemble_agent.py             # Weighted combination of the three models
+│   ├── planning_agent.py             # Main pipeline orchestrator
 │   ├── autonomous_planning_agent.py  # Alternative: autonomous tool-calling planner
-│   ├── messaging_agent.py        # Groq notification writer + Pushover push
-│   ├── preprocessor.py           # LiteLLM-based text normalizer (default: Groq)
-│   ├── deep_neural_network.py    # PyTorch model architecture + inference
-│   ├── items.py                  # Item dataclass for evaluation datasets
-│   └── evaluator.py              # Tester class: MSE / R² / scatter charts
-├── framework.py                  # DealAgentFramework: ChromaDB + memory + orchestration
-├── app.py                        # Gradio web UI
-├── log_utils.py                  # ANSI → HTML color converter for Gradio logs
-├── setup_vectorstore.py          # One-time ChromaDB population from HuggingFace
+│   ├── messaging_agent.py            # Groq notification writer + Pushover push
+│   ├── url_scout_agent.py            # Scrapes product URLs + buy/skip verdict
+│   ├── preprocessor.py               # LiteLLM-based text normalizer
+│   ├── deep_neural_network.py        # PyTorch model architecture + inference
+│   ├── items.py                      # Item dataclass for evaluation datasets
+│   └── evaluator.py                  # Tester class: MSE / R² / scatter charts
+├── products_vectorstore/             # Pre-built ChromaDB (20K product embeddings)
+├── framework.py                      # DealAgentFramework: ChromaDB + memory + orchestration
+├── app.py                            # Gradio web UI
+├── log_utils.py                      # ANSI → HTML color converter for Gradio logs
+├── setup_vectorstore.py              # One-time ChromaDB population from HuggingFace
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -155,31 +167,14 @@ bargainbuddy/
 
 ---
 
-## Using the Autonomous Agent (Optional)
+## Environment Variables
 
-To use the reasoning-based `AutonomousPlanningAgent` instead of the default
-pipeline-based `PlanningAgent`, edit `framework.py`:
-
-```python
-# Change this import:
-from agents.planning_agent import PlanningAgent
-# To:
-from agents.autonomous_planning_agent import AutonomousPlanningAgent as PlanningAgent
-```
-
-The autonomous agent uses Groq tool-calling to reason about which deals
-are worth estimating and when to notify the user.
-
----
-
-## Key Differences from the Original (week8)
-
-| Feature | Original | BargainBuddy |
-|---------|----------|--------------|
-| Scanner LLM | OpenAI `gpt-5-mini` structured outputs | Groq `llama-3.3-70b-versatile` JSON mode |
-| Frontier LLM | OpenAI `gpt-5.1` | Groq `llama-3.3-70b-versatile` |
-| Autonomous planner | OpenAI `gpt-5.1` tool-calling | Groq `llama-3.3-70b-versatile` tool-calling |
-| Specialist agent | Fine-tuned Llama on Modal | Groq `llama-3.1-8b-instant` with specialist prompt |
-| Messaging | Claude Sonnet 4.5 via LiteLLM | Groq `llama-3.3-70b-versatile` via LiteLLM |
-| Preprocessor | Ollama `llama3.2` (local) | Groq `llama-3.1-8b-instant` (cloud) |
-| Infrastructure | OpenAI + Modal + Claude | Groq only |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GROQ_API_KEY` | ✅ | API key from [console.groq.com](https://console.groq.com) |
+| `PUSHOVER_USER` | optional | Pushover user key for push notifications |
+| `PUSHOVER_TOKEN` | optional | Pushover app token |
+| `HF_TOKEN` | optional | HuggingFace token (only needed to rebuild vectorstore) |
+| `HF_DATASET_NAME` | optional | Dataset to index (default: `sjgod1247/items_lite`) |
+| `MAX_ITEMS` | optional | Max products to index (default: `20000`) |
+| `MODAL_ENDPOINT_URL` | optional | Fine-tuned specialist endpoint (falls back to Groq if unset) |
