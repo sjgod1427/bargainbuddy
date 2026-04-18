@@ -17,9 +17,6 @@ venv/
 .venv/
 env/
 
-# ChromaDB vectorstore (large binary data)
-products_vectorstore/
-
 # Neural network weights (large binary)
 deep_neural_network.pth
 
