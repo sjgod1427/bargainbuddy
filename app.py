@@ -25,22 +25,34 @@ from log_utils import reformat
 load_dotenv(override=True)
 
 
+_vectorstore_ready = False
+
+
 def _ensure_vectorstore():
-    """Build the ChromaDB vectorstore if it is empty (e.g. first HF Spaces boot)."""
-    import chromadb
-    client = chromadb.PersistentClient(path="products_vectorstore")
-    collection = client.get_or_create_collection("products")
-    if collection.count() == 0:
-        print("Vectorstore is empty — running setup_vectorstore.py …")
-        try:
-            import setup_vectorstore
-            setup_vectorstore.main()
-            print(f"Vectorstore ready — {collection.count()} items indexed.")
-        except Exception as e:
-            print(f"ERROR: Vectorstore setup failed: {e}")
-            raise
-    else:
-        print(f"Vectorstore already has {collection.count()} items — skipping setup.")
+    """Build ChromaDB in a background thread so startup is not blocked."""
+    def _build():
+        global _vectorstore_ready
+        import chromadb
+        client = chromadb.PersistentClient(path="products_vectorstore")
+        collection = client.get_or_create_collection("products")
+        if collection.count() == 0:
+            print("Vectorstore is empty — running setup_vectorstore.py …")
+            try:
+                import setup_vectorstore
+                setup_vectorstore.main()
+                count = collection.count()
+                print(f"Vectorstore ready — {count} items indexed.")
+            except Exception as e:
+                print(f"ERROR: Vectorstore setup failed: {e}")
+                import traceback
+                traceback.print_exc()
+                return
+        else:
+            print(f"Vectorstore already has {collection.count()} items — skipping setup.")
+        _vectorstore_ready = True
+
+    t = threading.Thread(target=_build, daemon=True)
+    t.start()
 
 
 _ensure_vectorstore()
