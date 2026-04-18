@@ -204,11 +204,32 @@ class App:
                 ):
                     yield log_data, output, final_result
 
-            def do_select(selected_index: gr.SelectData):
+            def do_select(selected_index: gr.SelectData, pushover_user: str, pushover_token: str):
                 opportunities = self.get_agent_framework().memory
                 row = selected_index.index[0]
                 opportunity = opportunities[row]
-                self.get_agent_framework().planner.messenger.alert(opportunity)
+                messenger = self.get_agent_framework().planner.messenger
+                if pushover_user.strip() and pushover_token.strip():
+                    # Use the session user's own credentials
+                    import requests as req
+                    text = (
+                        f"Deal Alert! Price=${opportunity.deal.price:.2f}, "
+                        f"Estimate=${opportunity.estimate:.2f}, "
+                        f"Discount=${opportunity.discount:.2f}: "
+                        f"{opportunity.deal.product_description[:80]}... "
+                        f"{opportunity.deal.url}"
+                    )
+                    req.post(
+                        "https://api.pushover.net/1/messages.json",
+                        data={"user": pushover_user.strip(), "token": pushover_token.strip(), "message": text, "sound": "cashregister"},
+                    )
+                else:
+                    messenger.alert(opportunity)
+
+            def save_pushover(user_key: str, token: str):
+                if user_key.strip() and token.strip():
+                    return gr.update(value="✅ Saved — click any deal row to get notified")
+                return gr.update(value="⚠️ Enter both fields to enable notifications")
 
             def analyse_url(url: str, history: list):
                 url = url.strip()
@@ -252,6 +273,21 @@ class App:
                 with gr.Column(scale=1):
                     plot = gr.Plot(value=get_plot(), show_label=False)
 
+            # ── Notification Settings ────────────────────────────────────────
+            with gr.Accordion("🔔 Push Notifications (Pushover)", open=False):
+                gr.Markdown(
+                    "Get notified on your phone when you click a deal row. "
+                    "Sign up free at [pushover.net](https://pushover.net) then paste your keys below. "
+                    "Credentials stay in your browser session only — never stored on the server."
+                )
+                with gr.Row():
+                    pushover_user_input = gr.Textbox(label="Pushover User Key", type="password", scale=1)
+                    pushover_token_input = gr.Textbox(label="Pushover App Token", type="password", scale=1)
+                with gr.Row():
+                    save_btn = gr.Button("Save", variant="primary")
+                    notif_status = gr.Markdown("")
+                save_btn.click(save_pushover, inputs=[pushover_user_input, pushover_token_input], outputs=[notif_status])
+
             # ── URL Deal Checker ─────────────────────────────────────────────
             with gr.Row():
                 gr.Markdown(
@@ -283,8 +319,8 @@ class App:
                 outputs=[log_data, logs, opportunities_dataframe],
             )
 
-            # Click a row → push that deal's alert
-            opportunities_dataframe.select(do_select)
+            # Click a row → push that deal's alert using session credentials
+            opportunities_dataframe.select(do_select, inputs=[pushover_user_input, pushover_token_input])
 
             # URL analyser
             analyse_btn.click(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
