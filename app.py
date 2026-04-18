@@ -25,6 +25,27 @@ from log_utils import reformat
 load_dotenv(override=True)
 
 
+def _ensure_vectorstore():
+    """Build the ChromaDB vectorstore if it is empty (e.g. first HF Spaces boot)."""
+    import chromadb
+    client = chromadb.PersistentClient(path="products_vectorstore")
+    collection = client.get_or_create_collection("products")
+    if collection.count() == 0:
+        print("Vectorstore is empty — running setup_vectorstore.py …")
+        try:
+            import setup_vectorstore
+            setup_vectorstore.main()
+            print(f"Vectorstore ready — {collection.count()} items indexed.")
+        except Exception as e:
+            print(f"ERROR: Vectorstore setup failed: {e}")
+            raise
+    else:
+        print(f"Vectorstore already has {collection.count()} items — skipping setup.")
+
+
+_ensure_vectorstore()
+
+
 class QueueHandler(logging.Handler):
     def __init__(self, log_queue):
         super().__init__()
@@ -209,7 +230,7 @@ class App:
             # Click a row → push that deal's alert
             opportunities_dataframe.select(do_select)
 
-        ui.launch(share=False, inbrowser=True)
+        ui.launch(server_name="0.0.0.0", share=False)
 
 
 if __name__ == "__main__":
