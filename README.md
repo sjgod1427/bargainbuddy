@@ -1,3 +1,16 @@
+---
+title: BargainBuddy
+emoji: 🛍️
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: "5.25.2"
+python_version: "3.10"
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # BargainBuddy
 
 An autonomous multi-agent deal-hunting system that scans online deal feeds, estimates the true market value of products using an ensemble of AI models, and sends you push notifications when it finds a genuine bargain.
