@@ -1,5 +1,10 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Self
+import sys
+from typing import List, Dict
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 from bs4 import BeautifulSoup
 import re
 import feedparser
