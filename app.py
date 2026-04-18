@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 
 from framework import DealAgentFramework
 from log_utils import reformat
+from agents.url_scout_agent import URLScoutAgent
 
 load_dotenv(override=True)
 
@@ -92,11 +93,23 @@ def setup_logging(log_queue):
 class App:
     def __init__(self):
         self.agent_framework = None
+        self.url_scout = None
 
     def get_agent_framework(self):
         if not self.agent_framework:
             self.agent_framework = DealAgentFramework()
         return self.agent_framework
+
+    def get_url_scout(self):
+        if not self.url_scout:
+            ensemble = self.get_agent_framework().planner.ensemble if (
+                self.agent_framework and self.agent_framework.planner
+            ) else None
+            if ensemble is None:
+                self.get_agent_framework().init_agents_as_needed()
+                ensemble = self.agent_framework.planner.ensemble
+            self.url_scout = URLScoutAgent(ensemble)
+        return self.url_scout
 
     def run(self):
         with gr.Blocks(title="BargainBuddy", fill_width=True) as ui:
@@ -197,6 +210,21 @@ class App:
                 opportunity = opportunities[row]
                 self.get_agent_framework().planner.messenger.alert(opportunity)
 
+            def analyse_url(url: str, history: list):
+                url = url.strip()
+                if not url:
+                    history.append({"role": "assistant", "content": "Please paste a product URL to analyse."})
+                    return history, ""
+                history.append({"role": "user", "content": url})
+                history.append({"role": "assistant", "content": "Analysing… this may take 15–30 seconds."})
+                yield history, ""
+                try:
+                    verdict = self.get_url_scout().analyse(url)
+                except Exception as e:
+                    verdict = f"Something went wrong: {e}"
+                history[-1] = {"role": "assistant", "content": verdict}
+                yield history, ""
+
             # ── Layout ───────────────────────────────────────────────────────
             with gr.Row():
                 gr.Markdown(
@@ -224,6 +252,22 @@ class App:
                 with gr.Column(scale=1):
                     plot = gr.Plot(value=get_plot(), show_label=False)
 
+            # ── URL Deal Checker ─────────────────────────────────────────────
+            with gr.Row():
+                gr.Markdown(
+                    '<div style="font-size:18px; font-weight:bold; margin-top:16px;">'
+                    'Should I Buy This? — Paste a Product URL</div>'
+                )
+            with gr.Row():
+                chatbot = gr.Chatbot(type="messages", height=340, show_label=False)
+            with gr.Row():
+                url_input = gr.Textbox(
+                    placeholder="https://www.amazon.com/dp/...",
+                    show_label=False,
+                    scale=5,
+                )
+                analyse_btn = gr.Button("Analyse", variant="primary", scale=1)
+
             # Auto-run on load
             ui.load(
                 run_with_logging,
@@ -241,6 +285,10 @@ class App:
 
             # Click a row → push that deal's alert
             opportunities_dataframe.select(do_select)
+
+            # URL analyser
+            analyse_btn.click(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
+            url_input.submit(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
 
         ui.launch(server_name="0.0.0.0", share=False)
 
