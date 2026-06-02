@@ -22,11 +22,13 @@ from dotenv import load_dotenv
 
 from framework import DealAgentFramework
 from log_utils import reformat
-from agents.url_scout_agent import URLScoutAgent
+from agents.url_scout_agent import URLScoutAgent, _ensure_playwright_browsers
 from subscriber_store import add_subscriber
 
 load_dotenv(override=True)
 
+# Install Playwright Chromium in the background so the UI is not blocked
+threading.Thread(target=_ensure_playwright_browsers, daemon=True).start()
 
 _vectorstore_ready = False
 
