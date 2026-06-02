@@ -30,13 +30,10 @@ class SpecialistAgent(Agent):
 
     def __init__(self):
         self.modal_url = os.getenv("MODAL_ENDPOINT_URL", "").strip()
-        self.groq_client = None
         if self.modal_url:
-            self.log(f"Specialist Agent using Modal endpoint")
+            self.log("Specialist Agent using Modal endpoint")
         else:
-            self.log("MODAL_ENDPOINT_URL not set — using Groq fallback")
-            from groq import Groq
-            self.groq_client = Groq()
+            self.log("MODAL_ENDPOINT_URL not set — using Groq/OpenAI fallback")
         self.log("Specialist Agent is ready")
 
     def get_price(self, s: str) -> float:
@@ -55,10 +52,8 @@ class SpecialistAgent(Agent):
         return float(response.json()["price"])
 
     def _price_via_groq(self, description: str) -> float:
-        if not self.groq_client:
-            from groq import Groq
-            self.groq_client = Groq()
-        response = self.groq_client.chat.completions.create(
+        from agents.llm_client import groq_chat
+        response = groq_chat(
             model=self.GROQ_MODEL,
             messages=[
                 {"role": "system", "content": self.GROQ_SYSTEM_PROMPT},

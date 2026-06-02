@@ -3,8 +3,8 @@ import re
 import subprocess
 import requests
 from bs4 import BeautifulSoup
-from groq import Groq
 from agents.agent import Agent
+from agents.llm_client import groq_chat
 
 # Realistic browser headers — Amazon and most e-commerce sites check these
 BROWSER_HEADERS = {
@@ -69,7 +69,6 @@ URL: {url}
 Be direct. Start with a clear BUY or SKIP recommendation, then explain why in plain language."""
 
     def __init__(self, ensemble):
-        self.client = Groq()
         self.ensemble = ensemble
 
     # ── Price / title / description extractors ─────────────────────────────
@@ -277,7 +276,7 @@ Be direct. Start with a clear BUY or SKIP recommendation, then explain why in pl
             currency_note=currency_note,
         )
         try:
-            response = self.client.chat.completions.create(
+            response = groq_chat(
                 model=self.MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=350,

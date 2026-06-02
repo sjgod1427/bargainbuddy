@@ -1,8 +1,8 @@
 import re
 from typing import List, Dict
-from groq import Groq
 from sentence_transformers import SentenceTransformer
 from agents.agent import Agent
+from agents.llm_client import groq_chat
 
 
 class FrontierAgent(Agent):
@@ -19,8 +19,6 @@ class FrontierAgent(Agent):
 
     def __init__(self, collection):
         self.log("Initializing Frontier Agent")
-        self.client = Groq()
-        self.log("Frontier Agent is connected to Groq")
         self.collection = collection
         self.model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
         self.log("Frontier Agent is ready")
@@ -70,7 +68,7 @@ class FrontierAgent(Agent):
         self.log(
             f"Frontier Agent is calling {self.MODEL} with 5 similar products as context"
         )
-        response = self.client.chat.completions.create(
+        response = groq_chat(
             model=self.MODEL,
             messages=self.messages_for(description, documents, prices),
             seed=42,

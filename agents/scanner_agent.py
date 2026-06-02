@@ -1,8 +1,8 @@
 import json
 from typing import Optional, List
-from groq import Groq
 from agents.deals import ScrapedDeal, DealSelection
 from agents.agent import Agent
+from agents.llm_client import groq_chat
 
 
 class ScannerAgent(Agent):
@@ -42,7 +42,6 @@ Deals:
 
     def __init__(self):
         self.log("Scanner Agent is initializing")
-        self.groq = Groq()
         self.log("Scanner Agent is ready")
 
     def fetch_deals(self, memory) -> List[ScrapedDeal]:
@@ -67,7 +66,7 @@ Deals:
         if scraped:
             user_prompt = self.make_user_prompt(scraped)
             self.log("Scanner Agent is calling Groq with JSON mode")
-            response = self.groq.chat.completions.create(
+            response = groq_chat(
                 model=self.MODEL,
                 messages=[
                     {"role": "system", "content": self.SYSTEM_PROMPT},

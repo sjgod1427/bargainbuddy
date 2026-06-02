@@ -1,9 +1,9 @@
 import os
 from agents.deals import Opportunity
 from agents.agent import Agent
-from groq import Groq
 import requests
 from subscriber_store import load_subscribers
+from agents.llm_client import groq_chat
 
 PUSHOVER_URL = "https://api.pushover.net/1/messages.json"
 
@@ -20,10 +20,9 @@ class MessagingAgent(Agent):
 
     def __init__(self):
         self.log("Messaging Agent is initializing")
-        self.client = Groq()
         self.pushover_user = os.getenv("PUSHOVER_USER", "")
         self.pushover_token = os.getenv("PUSHOVER_TOKEN", "")
-        self.log("Messaging Agent has initialized Pushover and Groq")
+        self.log("Messaging Agent is ready")
 
     def push(self, text: str, user_key: str = None):
         """Send a push notification via Pushover to the given user key (or env default)."""
@@ -77,7 +76,7 @@ class MessagingAgent(Agent):
             f"Estimated true value: ${estimated_true_value:.2f}\n\n"
             "Respond ONLY with the 2-3 sentence message. Make it exciting and concise."
         )
-        response = self.client.chat.completions.create(
+        response = groq_chat(
             model=self.MODEL,
             messages=[{"role": "user", "content": user_prompt}],
             max_tokens=200,

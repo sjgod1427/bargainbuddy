@@ -1,5 +1,6 @@
 # Core LLM / AI
 groq>=0.8.0
+openai>=1.30.0
 litellm>=1.40.0
 
 # Vector store & embeddings

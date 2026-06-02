@@ -42,11 +42,18 @@ class Preprocessor:
 
     def preprocess(self, text: str) -> str:
         messages = self.messages_for(text)
-        response = completion(
-            messages=messages,
-            model=self.model_name,
-            api_base=self.base_url,
-        )
+        try:
+            response = completion(
+                messages=messages,
+                model=self.model_name,
+                api_base=self.base_url,
+            )
+        except Exception as exc:
+            from agents.llm_client import _is_rate_limit
+            if _is_rate_limit(exc) and os.getenv("OPENAI_API_KEY"):
+                response = completion(messages=messages, model="openai/gpt-4o-mini")
+            else:
+                raise
         self.total_input_tokens += response.usage.prompt_tokens
         self.total_output_tokens += response.usage.completion_tokens
         try:
