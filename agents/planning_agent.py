@@ -16,7 +16,7 @@ class PlanningAgent(Agent):
 
     name = "Planning Agent"
     color = Agent.GREEN
-    DEAL_THRESHOLD = 50  # Minimum discount (USD) to trigger a notification
+    DEAL_THRESHOLD = 0  # TESTING: set to 50 in production
 
     def __init__(self, collection):
         self.log("Planning Agent is initializing")

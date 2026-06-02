@@ -293,7 +293,7 @@ class App:
             )
 
             # Auto-refresh every 5 minutes
-            timer = gr.Timer(value=300, active=True)
+            timer = gr.Timer(value=60, active=True)  # TESTING: set to 300 in production
             timer.tick(
                 run_with_logging,
                 inputs=[log_data],
