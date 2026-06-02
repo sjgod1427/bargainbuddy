@@ -7,11 +7,10 @@ The UI shows:
   - A live table of all discovered opportunities (deal price, estimate, discount)
   - A colour-coded agent log panel updated in real time
   - A 3-D scatter plot of the product vectorstore coloured by category
-  - Auto-runs the pipeline every 5 minutes; click any row to push a manual alert
+  - Auto-runs the pipeline every 5 minutes; notifies all subscribers automatically
 """
 
 import logging
-import os
 import queue
 import threading
 import time
@@ -208,33 +207,11 @@ class App:
                 ):
                     yield log_data, output, final_result
 
-            def do_select(selected_index: gr.SelectData, pushover_user: str):
-                opportunities = self.get_agent_framework().memory
-                row = selected_index.index[0]
-                opportunity = opportunities[row]
-                messenger = self.get_agent_framework().planner.messenger
-                pushover_token = os.getenv("PUSHOVER_TOKEN", "")
-                if pushover_user.strip() and pushover_token.strip():
-                    import requests as req
-                    text = (
-                        f"Deal Alert! Price=${opportunity.deal.price:.2f}, "
-                        f"Estimate=${opportunity.estimate:.2f}, "
-                        f"Discount=${opportunity.discount:.2f}: "
-                        f"{opportunity.deal.product_description[:80]}... "
-                        f"{opportunity.deal.url}"
-                    )
-                    req.post(
-                        "https://api.pushover.net/1/messages.json",
-                        data={"user": pushover_user.strip(), "token": pushover_token.strip(), "message": text, "sound": "cashregister"},
-                    )
-                else:
-                    messenger.alert(opportunity)
-
             def save_pushover(user_key: str):
                 if user_key.strip():
                     count = add_subscriber(user_key.strip())
-                    return user_key, gr.update(value=f"✅ Registered! You'll be notified automatically when a deal is found. ({count} subscriber(s) total)")
-                return "", gr.update(value="⚠️ Enter your Pushover User Key to get deal notifications")
+                    return gr.update(value=f"✅ Registered! You'll be notified automatically when a deal is found. ({count} subscriber(s) total)")
+                return gr.update(value="⚠️ Enter your Pushover User Key to get deal notifications")
 
             def analyse_url(url: str, history: list):
                 url = url.strip()
@@ -279,7 +256,6 @@ class App:
                     plot = gr.Plot(value=get_plot(), show_label=False)
 
             # ── Notification Settings ────────────────────────────────────────
-            saved_pushover_user = gr.State("")
             with gr.Accordion("🔔 Push Notifications (Pushover)", open=False):
                 gr.Markdown(
                     "Get notified on your phone automatically whenever a new bargain is found. "
@@ -291,7 +267,7 @@ class App:
                 with gr.Row():
                     save_btn = gr.Button("Save", variant="primary")
                     notif_status = gr.Markdown("")
-                save_btn.click(save_pushover, inputs=[pushover_user_input], outputs=[saved_pushover_user, notif_status])
+                save_btn.click(save_pushover, inputs=[pushover_user_input], outputs=[notif_status])
 
             # ── URL Deal Checker ─────────────────────────────────────────────
             with gr.Row():
@@ -323,9 +299,6 @@ class App:
                 inputs=[log_data],
                 outputs=[log_data, logs, opportunities_dataframe],
             )
-
-            # Click a row → push that deal's alert using saved session user key
-            opportunities_dataframe.select(do_select, inputs=[saved_pushover_user])
 
             # URL analyser
             analyse_btn.click(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
