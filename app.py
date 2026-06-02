@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 from framework import DealAgentFramework
 from log_utils import reformat
 from agents.url_scout_agent import URLScoutAgent, _ensure_playwright_browsers
+from agents.llm_client import set_user_keys, clear_user_keys
 from subscriber_store import add_subscriber
 
 load_dotenv(override=True)
@@ -213,7 +214,7 @@ class App:
                     return gr.update(value=f"✅ Registered! You'll be notified automatically when a deal is found. ({count} subscriber(s) total)")
                 return gr.update(value="⚠️ Enter your Pushover User Key to get deal notifications")
 
-            def analyse_url(url: str, history: list):
+            def analyse_url(url: str, history: list, user_provider: str, user_api_key: str):
                 url = url.strip()
                 if not url:
                     history.append({"role": "assistant", "content": "Please paste a product URL to analyse."})
@@ -221,10 +222,14 @@ class App:
                 history.append({"role": "user", "content": url})
                 history.append({"role": "assistant", "content": "Analysing… this may take 15–30 seconds."})
                 yield history, ""
+                if user_provider and user_api_key:
+                    set_user_keys(user_provider, user_api_key)
                 try:
                     verdict = self.get_url_scout().analyse(url)
                 except Exception as e:
                     verdict = f"Something went wrong: {e}"
+                finally:
+                    clear_user_keys()
                 history[-1] = {"role": "assistant", "content": verdict}
                 yield history, ""
 
@@ -275,6 +280,37 @@ class App:
                     '<div style="font-size:18px; font-weight:bold; margin-top:16px;">'
                     'Should I Buy This? — Paste a Product URL</div>'
                 )
+
+            # ── User API Key ─────────────────────────────────────────────────
+            user_provider_state = gr.State("")
+            user_api_key_state = gr.State("")
+            with gr.Accordion("🔑 Your LLM API Key (optional — used when server quota runs out)", open=False):
+                gr.Markdown(
+                    "If the server's Groq quota is exhausted, your key will be used instead. "
+                    "Key stays in your browser session only — never stored on the server."
+                )
+                with gr.Row():
+                    provider_dropdown = gr.Dropdown(
+                        choices=["OpenAI", "Anthropic", "Gemini"],
+                        label="Provider",
+                        scale=1,
+                    )
+                    api_key_input = gr.Textbox(label="API Key", type="password", scale=3)
+                with gr.Row():
+                    save_key_btn = gr.Button("Save", variant="primary")
+                    key_status = gr.Markdown("")
+
+                def save_user_key(provider: str, key: str):
+                    if provider and key.strip():
+                        return provider, key.strip(), gr.update(value=f"✅ {provider} key saved for this session")
+                    return "", "", gr.update(value="⚠️ Select a provider and enter your API key")
+
+                save_key_btn.click(
+                    save_user_key,
+                    inputs=[provider_dropdown, api_key_input],
+                    outputs=[user_provider_state, user_api_key_state, key_status],
+                )
+
             with gr.Row():
                 chatbot = gr.Chatbot(type="messages", height=340, show_label=False)
             with gr.Row():
@@ -301,8 +337,8 @@ class App:
             )
 
             # URL analyser
-            analyse_btn.click(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
-            url_input.submit(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
+            analyse_btn.click(analyse_url, inputs=[url_input, chatbot, user_provider_state, user_api_key_state], outputs=[chatbot, url_input])
+            url_input.submit(analyse_url, inputs=[url_input, chatbot, user_provider_state, user_api_key_state], outputs=[chatbot, url_input])
 
         ui.launch(server_name="0.0.0.0", share=False)
 
