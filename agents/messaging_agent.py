@@ -3,6 +3,7 @@ from agents.deals import Opportunity
 from agents.agent import Agent
 from groq import Groq
 import requests
+from subscriber_store import load_subscribers
 
 PUSHOVER_URL = "https://api.pushover.net/1/messages.json"
 
@@ -24,19 +25,36 @@ class MessagingAgent(Agent):
         self.pushover_token = os.getenv("PUSHOVER_TOKEN", "")
         self.log("Messaging Agent has initialized Pushover and Groq")
 
-    def push(self, text: str):
-        """Send a push notification via Pushover."""
-        if not self.pushover_user or not self.pushover_token:
+    def push(self, text: str, user_key: str = None):
+        """Send a push notification via Pushover to the given user key (or env default)."""
+        key = user_key or self.pushover_user
+        if not key or not self.pushover_token:
             self.log("Messaging Agent: Pushover credentials not set — skipping push")
             return
-        self.log("Messaging Agent is sending a push notification")
         payload = {
-            "user": self.pushover_user,
+            "user": key,
             "token": self.pushover_token,
             "message": text,
             "sound": "cashregister",
         }
         requests.post(PUSHOVER_URL, data=payload)
+
+    def push_to_all_subscribers(self, text: str):
+        """Send a push notification to every registered subscriber."""
+        if not self.pushover_token:
+            self.log("Messaging Agent: PUSHOVER_TOKEN not set — cannot notify subscribers")
+            return
+        subscribers = load_subscribers()
+        # Also include the env-configured owner key if not already in the list
+        if self.pushover_user and self.pushover_user not in subscribers:
+            subscribers.append(self.pushover_user)
+        if not subscribers:
+            self.log("Messaging Agent: no subscribers registered — skipping push")
+            return
+        self.log(f"Messaging Agent is notifying {len(subscribers)} subscriber(s)")
+        for user_key in subscribers:
+            self.push(text, user_key=user_key)
+        self.log("Messaging Agent finished notifying all subscribers")
 
     def alert(self, opportunity: Opportunity):
         """Send a structured alert about the given Opportunity."""
@@ -69,7 +87,7 @@ class MessagingAgent(Agent):
     def notify(
         self, description: str, deal_price: float, estimated_true_value: float, url: str
     ):
-        """Craft a message with Groq and push it to the user."""
+        """Craft a message with Groq and push it to all subscribers."""
         self.log("Messaging Agent is using Groq to craft the notification message")
         try:
             text = self.craft_message(description, deal_price, estimated_true_value)
@@ -82,5 +100,5 @@ class MessagingAgent(Agent):
                 f"Price: ${deal_price:.2f} | Est. value: ${estimated_true_value:.2f} | "
                 f"You save: ${discount:.2f} {url}"
             )
-        self.push(message)
+        self.push_to_all_subscribers(message)
         self.log("Messaging Agent has completed notification")

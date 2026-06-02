@@ -11,6 +11,7 @@ The UI shows:
 """
 
 import logging
+import os
 import queue
 import threading
 import time
@@ -22,6 +23,7 @@ from dotenv import load_dotenv
 from framework import DealAgentFramework
 from log_utils import reformat
 from agents.url_scout_agent import URLScoutAgent
+from subscriber_store import add_subscriber
 
 load_dotenv(override=True)
 
@@ -204,13 +206,13 @@ class App:
                 ):
                     yield log_data, output, final_result
 
-            def do_select(selected_index: gr.SelectData, pushover_user: str, pushover_token: str):
+            def do_select(selected_index: gr.SelectData, pushover_user: str):
                 opportunities = self.get_agent_framework().memory
                 row = selected_index.index[0]
                 opportunity = opportunities[row]
                 messenger = self.get_agent_framework().planner.messenger
+                pushover_token = os.getenv("PUSHOVER_TOKEN", "")
                 if pushover_user.strip() and pushover_token.strip():
-                    # Use the session user's own credentials
                     import requests as req
                     text = (
                         f"Deal Alert! Price=${opportunity.deal.price:.2f}, "
@@ -226,10 +228,11 @@ class App:
                 else:
                     messenger.alert(opportunity)
 
-            def save_pushover(user_key: str, token: str):
-                if user_key.strip() and token.strip():
-                    return gr.update(value="✅ Saved — click any deal row to get notified")
-                return gr.update(value="⚠️ Enter both fields to enable notifications")
+            def save_pushover(user_key: str):
+                if user_key.strip():
+                    count = add_subscriber(user_key.strip())
+                    return user_key, gr.update(value=f"✅ Registered! You'll be notified automatically when a deal is found. ({count} subscriber(s) total)")
+                return "", gr.update(value="⚠️ Enter your Pushover User Key to get deal notifications")
 
             def analyse_url(url: str, history: list):
                 url = url.strip()
@@ -274,19 +277,19 @@ class App:
                     plot = gr.Plot(value=get_plot(), show_label=False)
 
             # ── Notification Settings ────────────────────────────────────────
+            saved_pushover_user = gr.State("")
             with gr.Accordion("🔔 Push Notifications (Pushover)", open=False):
                 gr.Markdown(
-                    "Get notified on your phone when you click a deal row. "
-                    "Sign up free at [pushover.net](https://pushover.net) then paste your keys below. "
-                    "Credentials stay in your browser session only — never stored on the server."
+                    "Get notified on your phone automatically whenever a new bargain is found. "
+                    "Sign up free at [pushover.net](https://pushover.net), find your **User Key** on the dashboard, and paste it below. "
+                    "Your key is saved on the server so you keep getting notifications even after closing this tab."
                 )
                 with gr.Row():
-                    pushover_user_input = gr.Textbox(label="Pushover User Key", type="password", scale=1)
-                    pushover_token_input = gr.Textbox(label="Pushover App Token", type="password", scale=1)
+                    pushover_user_input = gr.Textbox(label="Your Pushover User Key", type="password", scale=2)
                 with gr.Row():
                     save_btn = gr.Button("Save", variant="primary")
                     notif_status = gr.Markdown("")
-                save_btn.click(save_pushover, inputs=[pushover_user_input, pushover_token_input], outputs=[notif_status])
+                save_btn.click(save_pushover, inputs=[pushover_user_input], outputs=[saved_pushover_user, notif_status])
 
             # ── URL Deal Checker ─────────────────────────────────────────────
             with gr.Row():
@@ -319,8 +322,8 @@ class App:
                 outputs=[log_data, logs, opportunities_dataframe],
             )
 
-            # Click a row → push that deal's alert using session credentials
-            opportunities_dataframe.select(do_select, inputs=[pushover_user_input, pushover_token_input])
+            # Click a row → push that deal's alert using saved session user key
+            opportunities_dataframe.select(do_select, inputs=[saved_pushover_user])
 
             # URL analyser
             analyse_btn.click(analyse_url, inputs=[url_input, chatbot], outputs=[chatbot, url_input])
