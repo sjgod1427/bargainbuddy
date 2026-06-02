@@ -11,7 +11,6 @@ User keys are stored in threading.local() so they are isolated per request
 thread and never bleed between concurrent sessions.
 """
 import logging
-import os
 import threading
 
 _local = threading.local()
@@ -61,7 +60,7 @@ def _fallback_call(messages: list, **kwargs):
     # Strip kwargs that non-Groq providers don't support
     clean = {k: v for k, v in kwargs.items() if k not in _GROQ_ONLY_KWARGS}
 
-    # 1. User session key
+    # User session key only — server keys are never used as fallback
     user_provider = getattr(_local, "provider", "")
     user_key = getattr(_local, "api_key", "")
     if user_provider and user_key and user_provider in _PROVIDER_MODELS:
@@ -69,14 +68,7 @@ def _fallback_call(messages: list, **kwargs):
         logging.warning(f"Groq rate limit — using user's {user_provider} key ({model})")
         return completion(model=model, messages=messages, api_key=user_key, **clean)
 
-    # 2. Server OpenAI key
-    server_key = os.getenv("OPENAI_API_KEY", "")
-    if server_key:
-        model = _PROVIDER_MODELS["openai"]
-        logging.warning(f"Groq rate limit — falling back to server OpenAI key ({model})")
-        return completion(model=model, messages=messages, api_key=server_key, **clean)
-
-    return None  # nothing available
+    return None  # no user key provided
 
 
 def groq_chat(model: str, messages: list, **kwargs):
