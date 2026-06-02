@@ -15,6 +15,8 @@ license: mit
 
 **Live demo → [huggingface.co/spaces/sjgod1247/bargainBuddy](https://huggingface.co/spaces/sjgod1247/bargainBuddy)**
 
+<video src="bargain_buddy_demo.mp4" controls autoplay loop muted playsinline width="100%"></video>
+
 An autonomous multi-agent deal-hunting system that scans online deal feeds, estimates the true market value of products using an ensemble of AI models, and sends push notifications when it finds a genuine bargain.
 
 Powered entirely by **Groq** (fast open-source LLMs) — no OpenAI required.
