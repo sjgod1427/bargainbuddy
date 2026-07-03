@@ -15,7 +15,7 @@ license: mit
 
 **Live demo → [huggingface.co/spaces/sjgod1247/bargainBuddy](https://huggingface.co/spaces/sjgod1247/bargainBuddy)**
 
-<video src="https://github.com/user-attachments/assets/e760ef0a-20ef-423d-8bad-4193c729ca2c" controls autoplay loop muted playsinline width="100%"></video>
+<!-- <video src="https://github.com/user-attachments/assets/e760ef0a-20ef-423d-8bad-4193c729ca2c" controls autoplay loop muted playsinline width="100%"></video> -->
 
 An autonomous multi-agent deal-hunting system that scans online deal feeds, estimates the true market value of products using an ensemble of AI models, and sends push notifications when it finds a genuine bargain.
 
